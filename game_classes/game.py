@@ -128,22 +128,22 @@ class Game:
         logging.debug(''.join(['Created new board ', str(size), 'x', str(size),
                                ' with win condition ', str(condition)]))
 
-    def single_turn(self, player: Player, cell_name: Tuple[int, int]) -> bool:
-        """
-        If cell is empty sets mark
-        :param player: player, who makes his move
-        :param cell_name: tuple of indexes
-        :return: True if mark was set successfully
-        """
-        cell = self.board.cells.get(cell_name, 0)
-        if cell != 0 and cell.get_mark() == ' ':
-            player.put_mark(cell)
-            self.board.filled_cells += 1
-            logging.debug(' '.join([player.name, 'marked', str(cell_name)]))
-            return True
-        logging.debug(''.join([player.name, ' wanted to mark ', str(cell_name),
-                               ", but the cell isn't empty"]))
-        return False
+    # def single_turn(self, player: Player, cell_name: Tuple[int, int]) -> bool:
+    #     """
+    #     If cell is empty sets mark
+    #     :param player: player, who makes his move
+    #     :param cell_name: tuple of indexes
+    #     :return: True if mark was set successfully
+    #     """
+    #     cell = self.board.cells.get(cell_name, 0)
+    #     if cell != 0 and cell.get_mark() == ' ':
+    #         player.put_mark(cell)
+    #         self.board.filled_cells += 1
+    #         logging.debug(' '.join([player.name, 'marked', str(cell_name)]))
+    #         return True
+    #     logging.debug(''.join([player.name, ' wanted to mark ', str(cell_name),
+    #                            ", but the cell isn't empty"]))
+    #     return False
 
     def start_game(self, size: int, condition: int) -> int:
         """

@@ -7,10 +7,10 @@ if __name__ == '__main__':
 
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(funcName)s',
-        level=logging.DEBUG
+        level=logging.ERROR
     )
 
-    player_1 = Player('Игрок 1')
-    player_2 = Player('Игрок 2')
+    player_1 = Player('Player')
+    player_2 = Player('Computer')
     game = Game([player_1, player_2])
     run_game(10, game)
