@@ -1,7 +1,9 @@
 import logging
+import re
 from typing import Dict, Tuple
 
 from game_classes.cell import Cell
+from game_classes.player import Player
 
 
 class Board:
@@ -28,7 +30,7 @@ class Board:
         for index_1 in range(self.size):
             for index_2 in range(self.size):
                 name = index_1, index_2
-                self.cells = Cell(name)
+                self.__cells[name] = Cell(name)
 
     @property
     def size(self) -> int:
@@ -73,6 +75,7 @@ class Board:
             self.__condition = condition
         else:
             self.__condition = self.size
+        self.__condition_exp = re.compile(''.join(['x{', str(condition), '}|o{', str(condition), '}']))
         logging.debug(' '.join(['Board.condition for win was set as', str(condition), 'cells']))
 
     @property
@@ -104,15 +107,78 @@ class Board:
         """
         return self.__cells
 
-    @cells.setter
-    def cells(self, cell: Cell) -> None:
-        """
-        Setter for cells
-        :param cell: new cell, that will be added to cells
-        """
-        self.__cells[cell.name] = cell
+    # @cells.setter
+    # def cells(self, cell: Cell) -> None:
+    #     """
+    #     Setter for cells
+    #     :param cell: new cell, that will be added to cells
+    #     """
+    #     self.__cells[cell.name] = cell
 
-    def check_win_combo(self, cell: Cell) -> Tuple[bool, str]:
+    # def check_win_combo(self, cell: Cell) -> Tuple[bool, str]:
+    #     """
+    #     Checks if there is a win combination on the board, or if all cells are filled.
+    #     Looks only near given cell
+    #     :param cell: last marked cell
+    #     :return: True if the game is over and the winner as his mark. If it's drawn game,
+    #     second value will be '-'
+    #     """
+    #     cell_name = cell.name
+    #     mark = cell.get_mark()
+    #     horizontal = vertical = 0
+    #     diagonal_right = diagonal_left = 0
+    #     delta = cell_name[1] - cell_name[0]
+    #     sum_index = cell_name[0] + cell_name[1]
+    #     for index_1 in range(self.size):
+    #         if self.cells[cell_name[0], index_1].get_mark() == mark:
+    #             horizontal += 1
+    #         else:
+    #             horizontal = 0
+    #         if self.cells[index_1, cell_name[1]].get_mark() == mark:
+    #             vertical += 1
+    #         else:
+    #             vertical = 0
+    #         if (0 <= index_1 + delta < self.size) and (
+    #                 self.cells[index_1, index_1 + delta].get_mark() == mark):
+    #             diagonal_right += 1
+    #         else:
+    #             diagonal_right = 0
+    #         if (0 <= sum_index - index_1 < self.size) and (
+    #                 self.cells[index_1, sum_index - index_1].get_mark() == mark):
+    #             diagonal_left += 1
+    #         else:
+    #             diagonal_left = 0
+    #         if max(horizontal, vertical, diagonal_right, diagonal_left) >= self.condition:
+    #             logging.debug(' '.join(['Win!',
+    #                                     'horizontal', str(horizontal),
+    #                                     'vertical', str(vertical),
+    #                                     'diagonal_right', str(diagonal_right),
+    #                                     'diagonal_left', str(diagonal_left)]))
+    #             return True, mark
+    #
+    #     if self.filled_cells == len(self.cells):
+    #         logging.debug(''.join(['Drawn game!']))
+    #         return True, '-'
+    #     return False, '-'
+
+    def single_turn(self, player: Player, cell_name: Tuple[int, int]) -> bool:
+        """
+        If cell is empty sets mark
+        :param player: player, who makes his move
+        :param cell_name: tuple of indexes
+        :return: True if mark was set successfully
+        """
+        cell = self.cells.get(cell_name, 0)
+        if cell != 0 and cell.get_mark() == ' ':
+            cell.set_mark(player.mark)
+            self.filled_cells += 1
+            logging.debug(' '.join([player.name, 'marked', str(cell_name)]))
+            return True
+        logging.debug(''.join([player.name, ' wanted to mark ', str(cell_name),
+                               ", but the cell isn't empty"]))
+        return False
+
+    def check_win_combo(self) -> Tuple[bool, str]:
         """
         Checks if there is a win combination on the board, or if all cells are filled.
         Looks only near given cell
@@ -120,40 +186,69 @@ class Board:
         :return: True if the game is over and the winner as his mark. If it's drawn game,
         second value will be '-'
         """
-        cell_name = cell.name
-        mark = cell.get_mark()
-        horizontal = vertical = 0
-        diagonal_right = diagonal_left = 0
-        delta = cell_name[1] - cell_name[0]
-        sum_index = cell_name[0] + cell_name[1]
-        for index_1 in range(self.size):
-            if self.cells[cell_name[0], index_1].get_mark() == mark:
-                horizontal += 1
+        results = []
+        for index_1 in range(self.size):  # for strings
+            main_diagonal = auxiliary_diagonal = ''
+            if index_1 == 0:
+                for index_2 in range(self.size):  # for rows
+                    horizontal = vertical = main_diagonal = auxiliary_diagonal = ''
+                    for inner_index in range(self.size):  # for strings inner
+                        # for search on main diagonal and parallel
+                        main_diagonal = ''.join([main_diagonal,
+                                                 str(self.cells.get((inner_index,
+                                                                     index_2 + inner_index), Cell((5, 5))).get_mark())])
+                        # for auxiliary diagonal and parallel
+                        auxiliary_diagonal = ''.join([auxiliary_diagonal,
+                                                      str(self.cells.get((inner_index,
+                                                                          self.size - inner_index - 1 - index_2),
+                                                                         Cell((5, 5))).get_mark())])
+                        horizontal = ''.join([horizontal,
+                                              str(self.cells.get((index_2, inner_index), Cell((5, 5))).get_mark())])
+                        vertical = ''.join([vertical,
+                                            str(self.cells.get((inner_index, index_2), Cell((5, 5))).get_mark())])
+
+                    results.append(self.__condition_exp.search(main_diagonal))
+                    results.append(self.__condition_exp.search(auxiliary_diagonal))
+                    results.append(self.__condition_exp.search(horizontal))
+                    results.append(self.__condition_exp.search(vertical))
+
             else:
-                horizontal = 0
-            if self.cells[index_1, cell_name[1]].get_mark() == mark:
-                vertical += 1
-            else:
-                vertical = 0
-            if (0 <= index_1 + delta < self.size) and (
-                    self.cells[index_1, index_1 + delta].get_mark() == mark):
-                diagonal_right += 1
-            else:
-                diagonal_right = 0
-            if (0 <= sum_index - index_1 < self.size) and (
-                    self.cells[index_1, sum_index - index_1].get_mark() == mark):
-                diagonal_left += 1
-            else:
-                diagonal_left = 0
-            if max(horizontal, vertical, diagonal_right, diagonal_left) >= self.condition:
-                logging.debug(' '.join(['Win!',
-                                        'horizontal', str(horizontal),
-                                        'vertical', str(vertical),
-                                        'diagonal_right', str(diagonal_right),
-                                        'diagonal_left', str(diagonal_left)]))
-                return True, mark
+                for inner_index in range(self.size - index_1):  # for strings
+                    main_diagonal = ''.join([main_diagonal,
+                                             str(self.cells.get((inner_index + index_1,
+                                                                 inner_index), Cell((5, 5))).get_mark())])
+                    auxiliary_diagonal = ''.join([auxiliary_diagonal,
+                                                  str(self.cells.get((inner_index + index_1,
+                                                                      self.size - inner_index - 1),
+                                                                     Cell((5, 5))).get_mark())])
+                results.append(self.__condition_exp.search(main_diagonal))
+                results.append(self.__condition_exp.search(auxiliary_diagonal))
+        # print(results)
+        for match in results:
+            if match is not None:
+                win_combo = match.group(0)
+                logging.debug(' '.join([win_combo[0], 'wins!']))
+                return True, win_combo[0]
 
         if self.filled_cells == len(self.cells):
             logging.debug(''.join(['Drawn game!']))
             return True, '-'
         return False, '-'
+
+    def copy(self):
+        new_board = Board(self.size, self.condition)
+        new_board.filled_cells = self.filled_cells
+        new_board.__cells = dict()
+        for cell_name in self.__cells:
+            new_board.__cells[cell_name] = Cell(cell_name)
+            new_board.__cells[cell_name].set_mark(self.__cells[cell_name].get_mark())
+        return new_board
+
+    def __str__(self):
+        string = ''
+        for index in range(self.size):
+            sub_string = ''
+            for index_1 in range(self.size):
+                sub_string = ' '.join([sub_string, self.cells[index, index_1].get_mark()])
+            string = '\n'.join([string, sub_string])
+        return string

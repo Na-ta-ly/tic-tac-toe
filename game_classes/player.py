@@ -37,13 +37,13 @@ class Player:
             raise ValueError("Name must be a str value")
         self.__name = name
 
-    def put_mark(self, cell: Cell) -> bool:
-        """
-        Assigns player's mark to the cell
-        :param cell: cell, chosen by player
-        :return: True, if mark is set successfully
-        """
-        return cell.set_mark(self.mark)
+    # def put_mark(self, cell: Cell) -> bool:
+    #     """
+    #     Assigns player's mark to the cell
+    #     :param cell: cell, chosen by player
+    #     :return: True, if mark is set successfully
+    #     """
+    #     return cell.set_mark(self.mark)
 
     @property
     def mark(self) -> str:
