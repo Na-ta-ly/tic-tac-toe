@@ -20,6 +20,7 @@ def run_game(size: int, game: Game) -> None:
     :return: None
     """
     pg.init()
+    clock = pg.time.Clock()
     screen = pg.display.set_mode(config.screen_dim)
     pg.display.set_caption("Tic-Tac-Toe")
 
@@ -33,19 +34,22 @@ def run_game(size: int, game: Game) -> None:
     pg.display.flip()
 
     while True:
+        clock.tick(60)
+        # pg.event.set_allowed(None)
+
         if game.curr_turn == 1 and game.state != 1:
             cell_name = autoturn(game.board, game.players)
             make_turn(interface, game, cell_name)
             pg.event.clear()
-
+        # pg.event.set_allowed([pg.MOUSEBUTTONDOWN, pg.QUIT])
+        # pg.event.pump()
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 sys.exit()
             if event.type == pg.MOUSEBUTTONDOWN:
                 mouse_pos = pg.mouse.get_pos()
                 click_react(mouse_pos, interface, game)
-
-
+        pg.event.pump()
 
         screen.blits(interface.get_all_elements())
 
