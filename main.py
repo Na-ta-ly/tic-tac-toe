@@ -1,16 +1,15 @@
 import logging
-from game_classes.player import Player
-from game_classes.game import Game
-from run_game import run_game
+import arcade
+from interface_classes.interface import Interface
+
 
 if __name__ == '__main__':
 
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(funcName)s',
-        level=logging.ERROR
+        level=logging.INFO
     )
 
-    player_1 = Player('Player')
-    player_2 = Player('Computer')
-    game = Game([player_1, player_2])
-    run_game(10, game)
+    interface = Interface("Tic-Tac-Toe")
+    interface.setup(10)
+    arcade.run()
