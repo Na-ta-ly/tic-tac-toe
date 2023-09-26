@@ -6,6 +6,7 @@ import arcade.gui
 
 import config
 from common_functions import tuple_verification
+from computer_player import autoturn
 
 from game_classes.player import Player
 from game_classes.game import Game
@@ -15,6 +16,7 @@ class Interface(arcade.Window):
     """
     Main interface class.
     """
+
     def __init__(self, game_name: str) -> None:
         """
         Creates main interface for a game window
@@ -25,14 +27,15 @@ class Interface(arcade.Window):
         self.click = arcade.load_sound("images/rockHit2.wav")
         self.colours = dict()
         self._all_config_values_verification()
+        self.dirty = False
 
         # ------ Main window
         super().__init__(config.screen_dim[0], config.screen_dim[1], game_name)
         arcade.set_background_color(self.colours['back'])
 
         # ------ Game
-        player_1 = Player('Player 1')
-        player_2 = Player('Player 2')
+        player_1 = Player('Player')
+        player_2 = Player('Computer')
         self.game = Game([player_1, player_2])
 
         # ------ Status bar
@@ -76,18 +79,12 @@ class Interface(arcade.Window):
         @small_game_button.event("on_click")
         def on_click_small_game(event):
             logging.debug(' '.join(['Pressed small_game button']))
-            self.setup(config.small_game_size)
-            self.game.curr_turn = self.game.start_game(config.small_game_size, 3)
-            self.state_bar.text = 'Small game started. Now turn of {name}'.format(
-                name=self.game.players[self.game.curr_turn].name)
+            self.setup(config.small_game_size, 3)
 
         @big_game_button.event("on_click")
         def on_click_big_game(event):
             logging.debug(' '.join(['Pressed big_game button']))
-            self.setup(config.big_game_size)
-            self.game.curr_turn = self.game.start_game(config.big_game_size, 5)
-            self.state_bar.text = 'Big game started. Now turn of {name}'.format(
-                name=self.game.players[self.game.curr_turn].name)
+            self.setup(config.big_game_size, 5)
 
         @quit_button.event("on_click")
         def on_click_quit(event):
@@ -109,12 +106,12 @@ class Interface(arcade.Window):
         :param condition: win combination
         :return: None
         """
-        # ------ Game start section
         self.game.curr_turn = self.game.start_game(game_size, condition)
 
-        # ------ Interface section
         self.grid_size = game_size
         self.grid_sprite_list, self.grid_sprites, self.board_sprites = self.draw_new_board()
+        self.state_bar.text = 'New game started. Now turn of {name}'.format(
+            name=self.game.players[self.game.curr_turn].name)
 
     def on_mouse_press(self, x: int, y: int, button: int, modifiers: int) -> None:
         """
@@ -133,25 +130,11 @@ class Interface(arcade.Window):
             return
 
         if self.game.state != 1:  # if game is not over yet
-            if self.game.single_turn(self.game.players[self.game.curr_turn], cell_name):
-
+            if self.game.single_turn(self.game.players[self.game.curr_turn], cell_name):  # if cell available
                 logging.debug(
                     ' '.join([f'Click coordinates: ({x}, {y}). Grid coordinates: ({cell_name[0]}, {cell_name[1]})']))
-                self.game.curr_turn = 1 - self.game.curr_turn
-                self.state_bar.text = 'Now turn of {name}'.format(name=self.game.players[self.game.curr_turn].name)
-
-                # HERE NEED RAW_CELL_NAME!!!
-                self._set_mark(raw_cell_name, self.game.players[self.game.curr_turn].mark)
-
-                result_check = self.game.board.check_win_combo(self.game.board.cells[cell_name])
-                if result_check[0]:
-                    self.game.state = 1
-                    winner = result_check[1]
-                    if winner == '-':
-                        tail = 'Drawn game!'
-                    else:
-                        tail = 'Win of {name}!'.format(name=self.game.players[1 - self.game.curr_turn].name)
-                    self.state_bar.text = ' '.join(['Game is over.', tail])
+                self.make_turn(cell_name)
+                self.dirty = True
 
     def on_draw(self) -> None:
         """
@@ -163,6 +146,16 @@ class Interface(arcade.Window):
         self.manager.draw()
 
         self.board_sprites.draw()
+
+        if self.dirty:
+            self.grid_sprite_list.draw()
+            self.dirty = False
+
+        elif self.game.players[self.game.curr_turn].name == 'Computer' and self.game.state != 1:
+            new_cell = autoturn(self.game.board, self.game.players)
+            self.game.single_turn(self.game.players[self.game.curr_turn], new_cell)
+            self.make_turn(new_cell)
+            self.dirty = True
         self.grid_sprite_list.draw()
 
     def _cell_name_convert(self, name: Tuple[int, int]) -> Tuple[int, int]:
@@ -181,7 +174,7 @@ class Interface(arcade.Window):
             else - texture 1
         :return: None
         """
-        row, column = cell
+        row, column = self.grid_size - cell[0] - 1, cell[1]
         if mark == 'o':
             self.grid_sprites[row][column].set_texture(0)
         else:
@@ -268,3 +261,19 @@ class Interface(arcade.Window):
                 colour = default_values[colour]['default']
                 logging.debug(f"Value {default_values[colour]['name']} in config.py is damaged. Using value ()")
             self.colours[default_values[colour]['small_name']] = colour
+
+    def make_turn(self, cell_name):
+        self._set_mark(cell_name, self.game.players[self.game.curr_turn].mark)
+
+        self.game.curr_turn = 1 - self.game.curr_turn
+        self.state_bar.text = 'Now turn of {name}'.format(name=self.game.players[self.game.curr_turn].name)
+
+        result_check = self.game.board.check_win_combo()
+        if result_check[0]:
+            self.game.state = 1
+            winner = result_check[1]
+            if winner == '-':
+                tail = 'Drawn game!'
+            else:
+                tail = 'Win of {name}!'.format(name=self.game.players[1 - self.game.curr_turn].name)
+            self.state_bar.text = ' '.join(['Game is over.', tail])

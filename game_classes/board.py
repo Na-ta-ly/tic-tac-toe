@@ -107,59 +107,59 @@ class Board:
         """
         return self.__cells
 
-    # @cells.setter
-    # def cells(self, cell: Cell) -> None:
-    #     """
-    #     Setter for cells
-    #     :param cell: new cell, that will be added to cells
-    #     """
-    #     self.__cells[cell.name] = cell
+    @cells.setter
+    def cells(self, cell: Cell) -> None:
+        """
+        Setter for cells
+        :param cell: new cell, that will be added to cells
+        """
+        self.__cells[cell.name] = cell
 
-    # def check_win_combo(self, cell: Cell) -> Tuple[bool, str]:
-    #     """
-    #     Checks if there is a win combination on the board, or if all cells are filled.
-    #     Looks only near given cell
-    #     :param cell: last marked cell
-    #     :return: True if the game is over and the winner as his mark. If it's drawn game,
-    #     second value will be '-'
-    #     """
-    #     cell_name = cell.name
-    #     mark = cell.get_mark()
-    #     horizontal = vertical = 0
-    #     diagonal_right = diagonal_left = 0
-    #     delta = cell_name[1] - cell_name[0]
-    #     sum_index = cell_name[0] + cell_name[1]
-    #     for index_1 in range(self.size):
-    #         if self.cells[cell_name[0], index_1].get_mark() == mark:
-    #             horizontal += 1
-    #         else:
-    #             horizontal = 0
-    #         if self.cells[index_1, cell_name[1]].get_mark() == mark:
-    #             vertical += 1
-    #         else:
-    #             vertical = 0
-    #         if (0 <= index_1 + delta < self.size) and (
-    #                 self.cells[index_1, index_1 + delta].get_mark() == mark):
-    #             diagonal_right += 1
-    #         else:
-    #             diagonal_right = 0
-    #         if (0 <= sum_index - index_1 < self.size) and (
-    #                 self.cells[index_1, sum_index - index_1].get_mark() == mark):
-    #             diagonal_left += 1
-    #         else:
-    #             diagonal_left = 0
-    #         if max(horizontal, vertical, diagonal_right, diagonal_left) >= self.condition:
-    #             logging.debug(' '.join(['Win!',
-    #                                     'horizontal', str(horizontal),
-    #                                     'vertical', str(vertical),
-    #                                     'diagonal_right', str(diagonal_right),
-    #                                     'diagonal_left', str(diagonal_left)]))
-    #             return True, mark
-    #
-    #     if self.filled_cells == len(self.cells):
-    #         logging.debug(''.join(['Drawn game!']))
-    #         return True, '-'
-    #     return False, '-'
+    def check_win_combo(self, cell: Cell) -> Tuple[bool, str]:
+        """
+        Checks if there is a win combination on the board, or if all cells are filled.
+        Looks only near given cell
+        :param cell: last marked cell
+        :return: True if the game is over and the winner as his mark. If it's drawn game,
+        second value will be '-'
+        """
+        cell_name = cell.name
+        mark = cell.get_mark()
+        horizontal = vertical = 0
+        diagonal_right = diagonal_left = 0
+        delta = cell_name[1] - cell_name[0]
+        sum_index = cell_name[0] + cell_name[1]
+        for index_1 in range(self.size):
+            if self.cells[cell_name[0], index_1].get_mark() == mark:
+                horizontal += 1
+            else:
+                horizontal = 0
+            if self.cells[index_1, cell_name[1]].get_mark() == mark:
+                vertical += 1
+            else:
+                vertical = 0
+            if (0 <= index_1 + delta < self.size) and (
+                    self.cells[index_1, index_1 + delta].get_mark() == mark):
+                diagonal_right += 1
+            else:
+                diagonal_right = 0
+            if (0 <= sum_index - index_1 < self.size) and (
+                    self.cells[index_1, sum_index - index_1].get_mark() == mark):
+                diagonal_left += 1
+            else:
+                diagonal_left = 0
+            if max(horizontal, vertical, diagonal_right, diagonal_left) >= self.condition:
+                logging.debug(' '.join(['Win!',
+                                        'horizontal', str(horizontal),
+                                        'vertical', str(vertical),
+                                        'diagonal_right', str(diagonal_right),
+                                        'diagonal_left', str(diagonal_left)]))
+                return True, mark
+
+        if self.filled_cells == len(self.cells):
+            logging.debug(''.join(['Drawn game!']))
+            return True, '-'
+        return False, '-'
 
     def single_turn(self, player: Player, cell_name: Tuple[int, int]) -> bool:
         """

@@ -7,7 +7,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(funcName)s',
-        level=logging.INFO
+        level=logging.WARNING
     )
 
     interface = Interface("Tic-Tac-Toe")
