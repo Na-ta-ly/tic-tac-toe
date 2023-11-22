@@ -223,7 +223,6 @@ class Board:
                                                                      Cell((5, 5))).get_mark())])
                 results.append(self.__condition_exp.search(main_diagonal))
                 results.append(self.__condition_exp.search(auxiliary_diagonal))
-        # print(results)
         for match in results:
             if match is not None:
                 win_combo = match.group(0)
@@ -236,6 +235,10 @@ class Board:
         return False, '-'
 
     def copy(self):
+        """
+        Creates new copy of the current board
+        :return: new instance for board
+        """
         new_board = Board(self.size, self.condition)
         new_board.filled_cells = self.filled_cells
         new_board.__cells = dict()
@@ -252,3 +255,15 @@ class Board:
                 sub_string = ' '.join([sub_string, self.cells[index, index_1].get_mark()])
             string = '\n'.join([string, sub_string])
         return string
+
+    def fill_cells(self, str_cells: str) -> None:
+        """
+        Sets cells values of the board to cells from a string
+        :param str_cells: string with marks
+        :return: None
+        """
+        for str_num, string in enumerate(str_cells.split('\n')):
+            for cell_index, mark_index in enumerate(range(1, len(string), 2)):
+                if string[mark_index] != ' ':
+                    self.filled_cells += 1
+                self.__cells[str_num-1, cell_index].set_mark(string[mark_index])

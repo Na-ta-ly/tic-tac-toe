@@ -176,9 +176,9 @@ class Interface(arcade.Window):
         """
         row, column = self.grid_size - cell[0] - 1, cell[1]
         if mark == 'o':
-            self.grid_sprites[row][column].set_texture(0)
-        else:
             self.grid_sprites[row][column].set_texture(1)
+        else:
+            self.grid_sprites[row][column].set_texture(0)
 
     def draw_new_board(self) -> Tuple[arcade.SpriteList, List[List[arcade.Sprite]], arcade.SpriteList]:
         """

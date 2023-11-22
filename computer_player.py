@@ -2,20 +2,23 @@ import math
 import re
 from collections import Counter
 from datetime import datetime
+from statistics import median, quantiles
 import logging
 from random import randint
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor
 from typing import List, Tuple
+from numba import jit
+from functools import lru_cache
 
 from game_classes.board import Board
 from game_classes.cell import Cell
 from game_classes.player import Player
 
 game_results = {'x': 1, '-': 0, 'o': -1}
+c = dict()
 
 
-# Probably add func copying state from another board
 def get_player(board: Board) -> str:
     """
     Returns mark, that should be put next
@@ -27,7 +30,7 @@ def get_player(board: Board) -> str:
     for cell in cells.values():
         values.append(cell.get_mark())
     board_statistic = Counter(values)
-    if board_statistic.get('x', 0) != board_statistic.get('o', 0):
+    if board_statistic.get('x', 0) > board_statistic.get('o', 0):
         return 'o'
     return 'x'
 
@@ -38,63 +41,73 @@ def get_possible_combos(board: Board) -> List[Tuple[int, int]]:
     :param board: current board
     :return: list of cell names
     """
-    result = []
-    max_distance = 1  # distance from already filled cells
-    second_list = []
-    list_contacts = []
-    for cell in board.cells.values():
+    result = dict()
+    empty_cells = []
+    distance = 1
+    neighbours = [(-1, 0), (1, 0), (0, -1), (0, 1), (1, 1), (-1, -1), (-1, 1), (1, -1)]
+    for cell in board.cells.values():  # built list of filled cells with same neighbours
         cell_mark = cell.get_mark()
-        if cell_mark != ' ':  # check if cell is filled
-            has_contact = 1  # filled with the same mark cells near current
-            temp_names = []
-            just_filled_list = []  # list of empty cells among cell's neighbours
+        candidate = False
+        potential = 0
 
-            for distance in range(1, max_distance + 1):  # add all cells in max_distance to temp_names
-                temp_names.append((cell.name[0] - distance, cell.name[1]))
-                temp_names.append((cell.name[0] + distance, cell.name[1]))
-                temp_names.append((cell.name[0], cell.name[1] - distance))
-                temp_names.append((cell.name[0], cell.name[1] + distance))
-                temp_names.append((cell.name[0] - distance, cell.name[1] - distance))
-                temp_names.append((cell.name[0] + distance, cell.name[1] + distance))
-                temp_names.append((cell.name[0] + distance, cell.name[1] - distance))
-                temp_names.append((cell.name[0] - distance, cell.name[1] + distance))
+        if cell_mark != ' ' and cell.name not in result.keys():  # if it's filled
+            surrounding = dict()
+            for key in neighbours:
+                test_cell = board.cells.get((cell.name[0] + key[0] * distance, cell.name[1] + key[1] * distance), None)
+                if test_cell is not None:
+                    surrounding[key] = test_cell
 
-            for potential_name in temp_names:  # check temp cells if they have same mark or any mark
-                potential_cell = board.cells.get(potential_name, None)
-                if potential_cell is not None:  # if exists
-                    if cell_mark == potential_cell.get_mark():
-                        has_contact += 1  # cell with same mark
-                    if potential_cell.get_mark() == ' ':
-                        just_filled_list.append(potential_name)  # empty neighbours
+            if ' ' in [item.get_mark() for item in surrounding.values()]:
+                for name, value in surrounding.items():  # how many same neighbours has cell and if it has empty space near
+                    i = 0
+                    test_cell_mark = value.get_mark()
+                    while test_cell_mark == cell_mark:
+                        potential += 1
+                        i += 1
+                        new_cell_name = (cell.name[0] + i * name[0], cell.name[1] + i * name[1])
+                        new_cell = board.cells.get(new_cell_name, None)
+                        test_cell_mark = ' ' if new_cell is None else new_cell.get_mark()
+                result[cell.name] = potential
+    result = sorted(result.items(), key=lambda item: item[1], reverse=True)
+    # if len(result) > 5:
+    #     limit = quantiles([item[1] for item in result], n=4)[-1]
+    #     print([item[1] for item in result])
+    #     print(quantiles([item[1] for item in result], n=4))
+    # else:
+    #     limit = 0
+    # limit = limit if limit > 3 else 3
+    limit = 3
+    reduced_results = list(filter(lambda item: item[1] >= limit, result))
 
-            if has_contact >= 2:  # if many same marks around
-                list_contacts.extend(just_filled_list)
-            else:
-                second_list.extend(just_filled_list)
+    reduced_results = reduced_results if len(reduced_results) > 5 else result[:5]
+    # if len(reduced_results) > 10:
+    #     reduced_results = reduced_results[:10]
+    #     print('use reduced_results')
+    # else:
+    #     print('use full_results')
+    for name, _ in reduced_results:
+        for key in neighbours:
+            test_cell = board.cells.get((name[0] + key[0] * distance, name[1] + key[1] * distance), None)
+            if test_cell is not None and test_cell.get_mark() == ' ':
+                empty_cells.append(test_cell.name)
 
-    if len(list_contacts) >= 5:  # if list_contacts large
-        result.extend(list_contacts)
-    else:
-        result.extend(list_contacts + second_list)
-
-    result = list(set(result))
-
-    if board.filled_cells < board.condition:
-        result = [result[randint(0, len(result) - 1)]]
-    # print(f'Sent {len(result)} combos')
-
-    return result
+    empty_cells = list(set(empty_cells))
+    return empty_cells
 
 
-def minimax(board: Board, player_1: Player, player_2: Player, depth: int = 0) -> float:
-    current_state = board.check_win_combo()
+@lru_cache(20000)
+# @jit(nopython=True)
+def minimax(cells, board_size, board_condition, player_1: Player, player_2: Player, depth: int = 0) -> float:
+    cur_board = Board(board_size, board_condition)
+    cur_board.fill_cells(cells)
+    current_state = cur_board.check_win_combo()
 
     if current_state[0]:
         return game_results.get(current_state[1], 0)
     depth += 1
     if depth >= 4:
-        return 0
-    current_mark = get_player(board)
+        return game_results.get('-', 0)
+    current_mark = get_player(cur_board)
     if current_mark == player_1.mark:
         current_player = player_1
     else:
@@ -103,40 +116,24 @@ def minimax(board: Board, player_1: Player, player_2: Player, depth: int = 0) ->
     func = max if current_mark == 'x' else min
 
     value = -math.inf if current_mark == 'x' else math.inf
-    initial_value = value
-    for combo in get_possible_combos(board):
-        new_board = board.copy()
+    for combo in get_possible_combos(cur_board):
+        new_board = cur_board.copy()
         new_board.single_turn(current_player, combo)
-        value = func(value, minimax(new_board, player_1, player_2, depth))
+        new_cells = str(new_board)
+        turn_result = minimax(new_cells, cur_board.size, cur_board.condition, player_1, player_2, depth)
 
-        # if value == -game_results.get(current_mark):
-        #     print('pruning')
-        #     return -game_results.get(current_mark)
-        value += 1 * value
+        result = func(value, turn_result)
+        value = result
+        # if depth >= 2 and turn_result == -game_results.get(current_mark):
+        #     # print(new_board)
+        #     print('opposite value')
+        #     print(value)
+            # value = turn_result
+            # break
+        # else:
+        #     value = result
+
     return value
-
-    # if get_player(board) == player_1.mark:
-    #     value = 0
-    #     for combo in get_possible_combos(board):
-    #         new_board = board.copy()
-    #         new_board.single_turn(player_1, combo)
-    #         result = minimax(new_board, player_1, player_2, depth)
-    #         value += 1 * result
-    #         # if result == -1:
-    #         #     print('pruning')
-    #         #     return -1
-    #     return value
-    # if get_player(board) == player_2.mark:
-    #     value = 0
-    #     for combo in get_possible_combos(board):
-    #         new_board = board.copy()
-    #         new_board.single_turn(player_2, combo)
-    #         result = minimax(new_board, player_1, player_2, depth)
-    #         value += 1 * result
-    #         # if result == 1:
-    #         #     print('pruning')
-    #         #     return 1
-    #     return value
 
 
 def autoturn(board: Board, players: List[Player]) -> Tuple[int, int]:
@@ -177,28 +174,10 @@ def autoturn(board: Board, players: List[Player]) -> Tuple[int, int]:
     return 0, 0
 
 
-    # maximum = []
-    # for combo in variation_list:
-    #     new_board = board.copy()
-    #     new_board.single_turn(players[1], combo)
-    #     maximum.append(minimax(new_board, players[0], players[1]))
-    # for i in range(len(maximum)):
-    #     print(variation_list[i], ': ', maximum[i])
-    # func = max if players[1].mark == 'x' else min
-    #
-    # end_time = datetime.now()
-    # print('Duration: {}'.format(end_time - start_time))
-    #
-    # if maximum.count(func(maximum)) == len(maximum):
-    #     print("Choose only 1 combo. ", maximum.count(func(maximum)))
-    #     return variation_list[randint(0, len(maximum) - 1)]
-    # return variation_list[maximum.index(func(maximum))]
-
-
 def test(board, players_1, players_2, combo, queue):
     new_board = board.copy()
     new_board.single_turn(players_2, combo)
-    queue.put((combo, minimax(new_board, players_1, players_2)))
+    queue.put((combo, minimax(str(new_board), new_board.size, new_board.condition, players_1, players_2)))
 
 
 if __name__ == '__main__':
@@ -208,9 +187,9 @@ if __name__ == '__main__':
     )
     board = Board(10, 5)
     player_1 = Player('Player')
-    player_1.mark = 'o'
+    player_1.mark = list(game_results.keys())[2]
     player_2 = Player('Computer')
-    player_2.mark = 'x'
+    player_2.mark = list(game_results.keys())[0]
 
     start_time = datetime.now()
 
@@ -223,6 +202,7 @@ if __name__ == '__main__':
     board.single_turn(player_2, (3, 3))
     board.single_turn(player_1, (1, 4))
     print(board)
+
     cell_name = autoturn(board, [player_1, player_2])
     print(cell_name)
     board.single_turn(player_2, cell_name)
@@ -230,4 +210,3 @@ if __name__ == '__main__':
 
     end_time = datetime.now()
     print('Total Duration: {}'.format(end_time - start_time))
-
